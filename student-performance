@@ -1,0 +1,47 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Title
+st.title("Student Performance Predictor")
+
+# Instructions
+st.markdown("Enter the student data below to predict their performance.")
+
+# Input fields
+study_hours = st.slider("Daily Study Hours", 0, 12, 4)
+attendance = st.slider("Attendance (%)", 0, 100, 75)
+assignments_done = st.slider("Assignments Completed (%)", 0, 100, 80)
+internet_usage = st.slider("Internet Usage for Study (%)", 0, 100, 50)
+sleep_hours = st.slider("Sleep Hours per Day", 0, 12, 6)
+
+# Sample mock dataset
+data = {
+    "study_hours": np.random.randint(0, 12, 100),
+    "attendance": np.random.randint(50, 100, 100),
+    "assignments_done": np.random.randint(50, 100, 100),
+    "internet_usage": np.random.randint(0, 100, 100),
+    "sleep_hours": np.random.randint(4, 10, 100),
+}
+df = pd.DataFrame(data)
+df["performance"] = ((df["study_hours"] * 0.3 + df["attendance"] * 0.2 +
+                      df["assignments_done"] * 0.2 + df["internet_usage"] * 0.1 +
+                      df["sleep_hours"] * 0.2) > 50).astype(int)
+
+# Model training
+X = df.drop("performance", axis=1)
+y = df["performance"]
+model = GradientBoostingClassifier()
+model.fit(X, y)
+
+# Prediction
+if st.button("Predict Performance"):
+    input_data = pd.DataFrame([[
+        study_hours, attendance, assignments_done, internet_usage, sleep_hours
+    ]], columns=X.columns)
+    prediction = model.predict(input_data)[0]
+    result = "Likely to Pass" if prediction == 1 else "Likely to Struggle"
+    st.success(f"Prediction: {result}")
