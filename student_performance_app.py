@@ -1,66 +1,56 @@
-
 import streamlit as st
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import GradientBoostingClassifier
+import numpy as np
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
 
-# Set up the page
-st.set_page_config(page_title="Student Performance Predictor", layout="centered")
+# Title
+st.title("Student Performance Predictor")
 
-st.title("🎓 Student Performance Predictor")
-st.write("Enter the details below to predict if a student is likely to pass or fail.")
+# User inputs
+study_hours = st.slider("Study Hours per Day", 0, 12, 4)
+attendance = st.slider("Attendance (%)", 0, 100, 80)
+assignments_done = st.slider("Assignments Done (%)", 0, 100, 85)
+internet_usage = st.slider("Internet Usage for Study (%)", 0, 100, 60)
+sleep_hours = st.slider("Sleep Hours", 0, 12, 7)
 
-# Input form
-study_hours = st.number_input("Study Hours per Week", min_value=0.0, max_value=40.0, value=10.0)
-attendance_percent = st.slider("Attendance Percentage", 0, 100, 85)
-engagement_level = st.slider("Engagement Level (1=Low, 5=High)", 1, 5, 3)
-previous_gpa = st.slider("Previous GPA (1.0 - 4.0)", 1.0, 4.0, 3.0)
-
-# Generate mock data for training
+# Mock dataset
 np.random.seed(42)
-data = pd.DataFrame({
-    'study_hours': np.random.uniform(0, 20, 200),
-    'attendance_percent': np.random.uniform(50, 100, 200),
-    'engagement_level': np.random.randint(1, 6, 200),
-    'previous_gpa': np.round(np.random.uniform(1.0, 4.0, 200), 2),
-    'passed': np.random.randint(0, 2, 200)
-})
+data = {
+    "study_hours": np.random.randint(0, 12, 200),
+    "attendance": np.random.randint(60, 100, 200),
+    "assignments_done": np.random.randint(50, 100, 200),
+    "internet_usage": np.random.randint(0, 100, 200),
+    "sleep_hours": np.random.randint(4, 10, 200)
+}
+df = pd.DataFrame(data)
+df["performance"] = (
+    (df["study_hours"] * 0.3 + df["attendance"] * 0.2 +
+     df["assignments_done"] * 0.2 + df["internet_usage"] * 0.1 +
+     df["sleep_hours"] * 0.2) > 55
+).astype(int)
 
-X = data.drop('passed', axis=1)
-y = data['passed']
+# Features and labels
+X = df.drop("performance", axis=1)
+y = df["performance"]
+
+# Preprocessing
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Train Gradient Boosting Classifier
-gbdt = GradientBoostingClassifier()
-gbdt.fit(X_scaled, y)
-
-# Train Deep Neural Network
-model_dnn = Sequential([
-    Dense(64, activation='relu', input_shape=(X_scaled.shape[1],)),
-    Dense(32, activation='relu'),
-    Dense(1, activation='sigmoid')
-])
-model_dnn.compile(optimizer=Adam(0.001), loss='binary_crossentropy', metrics=['accuracy'])
-model_dnn.fit(X_scaled, y, epochs=20, batch_size=16, verbose=0)
+# Model
+model = MLPClassifier(hidden_layer_sizes=(16, 8), max_iter=300)
+model.fit(X_scaled, y)
 
 # Prediction
+input_data = pd.DataFrame([[
+    study_hours, attendance, assignments_done, internet_usage, sleep_hours
+]], columns=X.columns)
+input_scaled = scaler.transform(input_data)
+pred = model.predict(input_scaled)[0]
+result = "Likely to Pass" if pred == 1 else "Needs Improvement"
+
+# Show result
 if st.button("Predict"):
-    input_data = pd.DataFrame([{
-        'study_hours': study_hours,
-        'attendance_percent': attendance_percent,
-        'engagement_level': engagement_level,
-        'previous_gpa': previous_gpa
-    }])
-    input_scaled = scaler.transform(input_data)
-
-    gbdt_pred = gbdt.predict(input_scaled)[0]
-    dnn_pred = model_dnn.predict(input_scaled)[0][0]
-
-    st.subheader("Prediction Results")
-    st.write(f"**Gradient Boosting Model:** {'✅ Pass' if gbdt_pred == 1 else '❌ Fail'}")
-    st.write(f"**Deep Neural Network:** {'✅ Pass' if dnn_pred > 0.5 else '❌ Fail'}")
+    st.success(f"Prediction: {result}")
